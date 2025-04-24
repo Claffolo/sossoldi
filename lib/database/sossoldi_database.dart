@@ -118,22 +118,25 @@ class SossoldiDatabase {
     return csv;
   }
 
-  Future<Map<String, bool>> importFromCSV(String csvFilePath) async {
+  Future<Map<String, bool>> importFromCSVFile(String csvFilePath) async {
+    final file = File(csvFilePath);
+    if (!await file.exists()) {
+      throw Exception('CSV file not found');
+    }
+    final String csvData = await file.readAsString();
+    return importFromCSVContent(csvData);
+  }
+
+  Future<Map<String, bool>> importFromCSVContent(String csvData) async {
     final db = await database;
     Map<String, bool> results = {};
 
     try {
-      final file = File(csvFilePath);
-      if (!await file.exists()) {
-        throw Exception('CSV file not found');
-      }
-
-      final String csvData = await file.readAsString();
       final List<List<dynamic>> rows =
           const CsvToListConverter().convert(csvData);
 
       if (rows.isEmpty) {
-        throw Exception('CSV file is empty');
+        throw Exception('CSV data is empty');
       }
 
       // First row contains headers
@@ -141,7 +144,7 @@ class SossoldiDatabase {
       final int tableNameIndex = headers.indexOf('table_name');
 
       if (tableNameIndex == -1) {
-        throw Exception('CSV file missing table_name column');
+        throw Exception('CSV data missing table_name column');
       }
 
       // Group rows by table
@@ -167,11 +170,8 @@ class SossoldiDatabase {
               final Map<String, dynamic> row = {};
               for (int j = 0; j < headers.length; j++) {
                 if (j != tableNameIndex) {
-                  // Skip the table_name column
                   final String header = headers[j];
                   final dynamic value = tableRows[i][j];
-
-                  // Convert empty strings to null
                   if (value != '') {
                     row[header] = value;
                   }

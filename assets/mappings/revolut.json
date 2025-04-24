@@ -1,0 +1,43 @@
+{
+  "id": "revolut",
+  "name": "Revolut",
+  "logoUrl": "assets/logos/revolut.png",
+  "columnMap": {
+    "date": "Completed Date",
+    "amount": "Amount",
+    "type": "Type",
+    "note": "Description"
+  },
+  "valueMap": {
+    "type": {
+      "TRANSFER": "TRSF",
+      "CARD_PAYMENT": "OUT",
+      "EXCHANGE": "OUT",
+      "TOPUP": "IN",
+      "FEE": "OUT",
+      "REWARD": "IN"
+    }
+  },
+  "defaultValues": {
+    "table_name": "transaction",
+    "name": "",
+    "symbol": "",
+    "color": "",
+    "startingValue": "",
+    "active": "",
+    "mainAccount": "",
+    "countNetWorth": "",
+    "idCategory": "",
+    "idBankAccountTransfer": null,
+    "recurring": 0,
+    "idRecurringTransaction": null,
+    "fromDate": null,
+    "toDate": null,
+    "recurrency": null,
+    "lastInsertion": null,
+    "parent": null,
+    "amountLimit": null,
+    "code": null,
+    "mainCurrency": null
+  }
+}

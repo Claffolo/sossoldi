@@ -24,6 +24,8 @@ import 'pages/structure.dart';
 import 'pages/transactions_page/transactions_page.dart';
 import 'pages/planning_page/widget/edit_recurring_transaction.dart';
 import 'pages/backup_page/backup_page.dart';
+import 'pages/backup_page/widgets/choose_import_type.dart';
+import 'pages/backup_page/widgets/select_import_source.dart';
 
 Route<dynamic> makeRoute(RouteSettings settings) {
   switch (settings.name) {
@@ -81,6 +83,12 @@ Route<dynamic> makeRoute(RouteSettings settings) {
       return buildAdaptiveRoute(settings.name, const SearchPage());
     case '/backup-page':
       return buildAdaptiveRoute(settings.name, const BackupPage());
+    case '/backup-page/choose-import':
+      return buildAdaptiveRoute(settings.name, const ChooseImportType());
+    case '/backup-page/select-source':
+      return buildAdaptiveRoute(settings.name, const SelectImportSource());
+    case '/backup-page/custom-mapper':
+      return buildAdaptiveRoute(settings.name, const Placeholder()); // Temporary placeholder for custom mapper
     default:
       throw 'Route is not defined';
   }

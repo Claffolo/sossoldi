@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../database/sossoldi_database.dart';
-import '../../ui/device.dart';
-import '../../utils/csv_file_picker.dart';
-import '../../utils/snack_bars/snack_bar.dart';
+import '../../providers/backup_provider.dart';
 
 class BackupPage extends ConsumerStatefulWidget {
   const BackupPage({super.key});
@@ -42,64 +38,48 @@ class BackupOption {
 }
 
 class _BackupPageState extends ConsumerState<BackupPage> {
-  Future<void> _handleImport() async {
-    try {
-      final file = await CSVFilePicker.pickCSVFile(context);
-      if (file != null) {
-        if (!mounted) return;
-        CSVFilePicker.showLoading(context, 'Importing data...');
-        final results =
-            await SossoldiDatabase.instance.importFromCSV(file.path);
-        if (!mounted) return;
-        CSVFilePicker.hideLoading(context);
-
-        if (results.values.every((success) => success)) {
-          await CSVFilePicker.showSuccess(
-              context, 'Data imported successfully');
-          if (mounted) Phoenix.rebirth(context);
-        } else {
-          final failedTables = results.entries
-              .where((e) => !e.value)
-              .map((e) => e.key)
-              .join(', ');
-
-          if (!mounted) return;
-
-          showSnackBar(
-            context,
-            message: 'Failed to import some tables: $failedTables',
-          );
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      CSVFilePicker.hideLoading(context);
-
-      showSnackBar(
-        context,
-        message: 'Import failed: ${e.toString()}',
-      );
-    }
-  }
-
-  Future<void> _handleExport() async {
-    try {
-      CSVFilePicker.showLoading(context, 'Exporting data...');
-
-      final csv = await SossoldiDatabase.instance.exportToCSV();
-
-      if (!mounted) return;
-      CSVFilePicker.hideLoading(context);
-
-      await CSVFilePicker.saveCSVFile(csv, context);
-    } catch (e) {
-      if (!mounted) return;
-      CSVFilePicker.hideLoading(context);
-      showSnackBar(
-        context,
-        message: 'Export failed: ${e.toString()}',
-      );
-    }
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green,
+                ),
+                padding: EdgeInsets.all(16),
+                child: Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 36,
+                ),
+              ),
+              SizedBox(height: 24),
+              Text(
+                'Success',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              SizedBox(height: 24),
+              TextButton(
+                onPressed: () => {
+                  Navigator.of(context).pop(),
+                  ref.read(backupProvider.notifier).resetState(),
+                },
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   late final List<BackupOption> options = [
@@ -116,12 +96,25 @@ class _BackupPageState extends ConsumerState<BackupPage> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final backupState = ref.watch(backupProvider);
+
+    // Show success or error messages
+    if (backupState.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(backupState.errorMessage!),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    } else if (!backupState.isLoading && backupState.showSuccess) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showSuccessDialog();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -141,108 +134,90 @@ class _BackupPageState extends ConsumerState<BackupPage> {
               .copyWith(color: Theme.of(context).colorScheme.primary),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(Sizes.lg),
-          child: Column(
-            children: [
-              ListView.separated(
-                itemCount: options.length,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: Sizes.lg),
-                itemBuilder: (context, i) {
-                  final option = options[i];
-                  return Card(
-                    elevation: 2,
-                    child: InkWell(
-                      onTap: () {
-                        if (i == 0) {
-                          // Show confirmation dialog for the first option
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text('Warning: Data Overwrite'),
-                              content: Text(
-                                  'Importing this file will permanently replace your existing data. This action cannot be undone. Ensure you have a backup before proceeding.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    _handleImport();
-                                  },
-                                  child: Text('Proceed with Import'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          _handleExport();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(Sizes.lg),
-                        child: Row(
-                          children: [
-                            Icon(
-                              option.icon,
-                              color: Theme.of(context).colorScheme.primary,
-                              size: 32,
-                            ),
-                            const SizedBox(width: Sizes.lg),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+      body: backupState.isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    ListView.separated(
+                      itemCount: options.length,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, i) {
+                        final option = options[i];
+                        return Card(
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () {
+                              if (i == 0) {
+                                Navigator.pushNamed(context, '/backup-page/choose-import');
+                              } else {
+                                ref.read(backupProvider.notifier).exportData();
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    option.title,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge!
-                                        .copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                        ),
+                                  Icon(
+                                    option.icon,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    size: 32,
                                   ),
-                                  const SizedBox(height: Sizes.xs),
-                                  Text(
-                                    option.description,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium!
-                                        .copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          option.title,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge!
+                                              .copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                              ),
                                         ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          option.description,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium!
+                                              .copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
